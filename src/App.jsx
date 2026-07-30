@@ -4,6 +4,7 @@ import SummaryCards from './components/SummaryCards.jsx'
 import FleetGauge from './components/FleetGauge.jsx'
 import HoursChart from './components/HoursChart.jsx'
 import AssetTable from './components/AssetTable.jsx'
+import ForecastPanel from './components/ForecastPanel.jsx'
 import { fleetEfficiency, utilization } from './utils/records.js'
 
 function App() {
@@ -64,6 +65,7 @@ function App() {
               <HoursChart records={records} />
             </section>
 
+            <ForecastPanel />
             <AssetTable records={records} />
           </>
         )}

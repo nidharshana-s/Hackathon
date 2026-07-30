@@ -10,19 +10,23 @@ import {
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip)
 
 export default function HoursChart({ records }) {
+  const topRecords = [...records]
+    .sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }))
+    .slice(0, 10)
+
   const data = {
-    labels: records.map((r) => r.id),
+    labels: topRecords.map((r) => r.id),
     datasets: [
       {
         label: 'Engine Hrs/Day',
-        data: records.map((r) => r.engine),
+        data: topRecords.map((r) => r.engine),
         backgroundColor: '#2FD3B8',
         borderRadius: 4,
         maxBarThickness: 26,
       },
       {
         label: 'Idle Hrs/Day',
-        data: records.map((r) => r.idle),
+        data: topRecords.map((r) => r.idle),
         backgroundColor: '#E2612F',
         borderRadius: 4,
         maxBarThickness: 26,

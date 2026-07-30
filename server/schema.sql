@@ -18,6 +18,27 @@ CREATE TABLE IF NOT EXISTS rental_notification_log (
   PRIMARY KEY (equipment_id, notification_type, checkout_date)
 );
 
+-- Equipment physically available at each site, used for pre-positioning advice.
+CREATE TABLE IF NOT EXISTS site_equipment_inventory (
+  site_id VARCHAR(20) NOT NULL,
+  equipment_type VARCHAR(50) NOT NULL,
+  available_units INTEGER NOT NULL DEFAULT 0 CHECK (available_units >= 0),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (site_id, equipment_type)
+);
+
+CREATE TABLE IF NOT EXISTS demand_forecasts (
+  site_id VARCHAR(20) NOT NULL,
+  equipment_type VARCHAR(50) NOT NULL,
+  forecast_week DATE NOT NULL,
+  predicted_units NUMERIC(8, 2) NOT NULL,
+  lower_bound NUMERIC(8, 2) NOT NULL,
+  upper_bound NUMERIC(8, 2) NOT NULL,
+  model_name VARCHAR(50) NOT NULL,
+  generated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (site_id, equipment_type, forecast_week)
+);
+
 -- Existing DBs: allow null check_out (means currently checked in) and store time.
 ALTER TABLE rental_records
   ALTER COLUMN check_in TYPE TIMESTAMP USING check_in::timestamp;

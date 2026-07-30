@@ -1,29 +1,85 @@
-import { useState } from 'react'
-import { calculatedStats, isActiveRental } from '../utils/records.js'
+import { useMemo, useState } from 'react'
+import { calculatedStats, efficiency, isActiveRental, runtimeHours } from '../utils/records.js'
+
+const SORT_OPTIONS = [
+  { value: 'eqId', label: 'Equipment ID' },
+  { value: 'checkin', label: 'Check-In' },
+  { value: 'efficiency', label: 'Efficiency' },
+  { value: 'runtime', label: 'Runtime Hours' },
+  { value: 'rentalDays', label: 'Rental Days' },
+]
+
+function sortValue(record, sortBy) {
+  switch (sortBy) {
+    case 'checkin': {
+      const t = new Date(record.checkIn ?? record.checkin ?? 0).getTime()
+      return Number.isNaN(t) ? 0 : t
+    }
+    case 'efficiency':
+      return Number(efficiency(record))
+    case 'runtime':
+      return Number(runtimeHours(record))
+    case 'rentalDays':
+      return Number(record.rentalDays ?? record.days ?? 0)
+    default:
+      return 0
+  }
+}
+
+function compareRecords(a, b, sortBy) {
+  if (sortBy === 'eqId') {
+    return String(a.id ?? '').localeCompare(String(b.id ?? ''), undefined, {
+      numeric: true,
+      sensitivity: 'base',
+    })
+  }
+  return sortValue(b, sortBy) - sortValue(a, sortBy)
+}
 
 export default function AssetTable({ records }) {
   const [filter, setFilter] = useState('')
+  const [sortBy, setSortBy] = useState('checkin')
 
-  const filtered = records.filter((r) =>
-    [r.id, r.type, r.site, r.operator].some((value) =>
-      String(value ?? '').toLowerCase().includes(filter.toLowerCase()),
-    ),
-  )
+  const filtered = useMemo(() => {
+    const q = filter.toLowerCase()
+    const list = records.filter((r) =>
+      [r.id, r.type, r.site, r.operator].some((value) =>
+        String(value ?? '').toLowerCase().includes(q),
+      ),
+    )
+
+    return [...list].sort((a, b) => compareRecords(a, b, sortBy))
+  }, [records, filter, sortBy])
 
   return (
     <section className="panel rounded-xl overflow-hidden">
-      <div className="px-6 py-4 border-b border-panelLine flex items-center justify-between">
+      <div className="px-6 py-4 border-b border-panelLine flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h2 className="font-display font-semibold text-lg text-ink">Asset Log</h2>
           <p className="text-xs text-inkDim font-mono">every rental cycle on record · read directly from source data</p>
         </div>
-        <input
-          type="text"
-          placeholder="search equipment ID…"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="bg-[#0F1317] border border-panelLine rounded-md px-3 py-1.5 text-sm font-mono placeholder:text-inkDim focus:outline-none focus:border-teal w-48 text-ink"
-        />
+        <div className="flex items-center gap-2">
+          <label className="sr-only" htmlFor="asset-sort">Sort by</label>
+          <select
+            id="asset-sort"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="bg-[#0F1317] border border-panelLine rounded-md px-3 py-1.5 text-sm font-mono text-ink focus:outline-none focus:border-teal"
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <input
+            type="text"
+            placeholder="search equipment ID…"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="bg-[#0F1317] border border-panelLine rounded-md px-3 py-1.5 text-sm font-mono placeholder:text-inkDim focus:outline-none focus:border-teal w-48 text-ink"
+          />
+        </div>
       </div>
 
       <div className="overflow-x-auto">

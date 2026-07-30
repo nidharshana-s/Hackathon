@@ -1,3 +1,15 @@
+CREATE TABLE IF NOT EXISTS rental_records (
+  equipment_id VARCHAR(20) PRIMARY KEY,
+  type VARCHAR(50) NOT NULL,
+  site_id VARCHAR(20),
+  check_in TIMESTAMP NOT NULL,
+  check_out TIMESTAMP,
+  engine_hrs_day NUMERIC(5, 2) NOT NULL,
+  idle_hrs_day NUMERIC(5, 2) NOT NULL,
+  rental_days INTEGER NOT NULL,
+  operator_id VARCHAR(20)
+);
+
 CREATE TABLE IF NOT EXISTS operators (
   operator_id VARCHAR(20) PRIMARY KEY,
   password VARCHAR(255) NOT NULL DEFAULT '1234'

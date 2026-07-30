@@ -151,6 +151,49 @@ app.get('/api/records', async (_req, res) => {
   }
 })
 
+app.get('/api/forecasts', async (req, res) => {
+  const siteId = req.query.siteId || null
+  const equipmentType = req.query.equipmentType || null
+
+  try {
+    const result = await pool.query(
+      `SELECT
+         f.site_id AS "siteId",
+         f.equipment_type AS "equipmentType",
+         f.forecast_week AS "forecastWeek",
+         f.predicted_units AS "predictedUnits",
+         f.lower_bound AS "lowerBound",
+         f.upper_bound AS "upperBound",
+         f.model_name AS "modelName",
+         COALESCE(i.available_units, 0) AS "availableUnits",
+         GREATEST(CEIL(f.upper_bound) - COALESCE(i.available_units, 0), 0) AS "prePositionUnits"
+       FROM demand_forecasts f
+       LEFT JOIN site_equipment_inventory i
+         ON i.site_id = f.site_id AND i.equipment_type = f.equipment_type
+       WHERE ($1::text IS NULL OR f.site_id = $1)
+         AND ($2::text IS NULL OR f.equipment_type = $2)
+         AND f.forecast_week >= CURRENT_DATE
+       ORDER BY f.forecast_week, f.site_id, f.equipment_type`,
+      [siteId, equipmentType],
+    )
+
+    res.json({ forecasts: result.rows.map((row) => ({
+      ...row,
+      predictedUnits: toNumber(row.predictedUnits),
+      lowerBound: toNumber(row.lowerBound),
+      upperBound: toNumber(row.upperBound),
+      availableUnits: toNumber(row.availableUnits),
+      prePositionUnits: toNumber(row.prePositionUnits),
+    })) })
+  } catch (error) {
+    // The forecast service has not been run yet, or the schema has not been applied.
+    if (error.code === '42P01') {
+      return res.json({ forecasts: [] })
+    }
+    res.status(500).json({ error: error.message })
+  }
+})
+
 app.listen(port, async () => {
   console.log(`API running on http://localhost:${port}`)
   try {
