@@ -4,7 +4,7 @@ import SummaryCards from './components/SummaryCards.jsx'
 import FleetGauge from './components/FleetGauge.jsx'
 import HoursChart from './components/HoursChart.jsx'
 import AssetTable from './components/AssetTable.jsx'
-import { utilization } from './utils/records.js'
+import { fleetEfficiency, utilization } from './utils/records.js'
 
 function App() {
   const [records, setRecords] = useState([])
@@ -44,7 +44,7 @@ function App() {
 
   const avgUtil = useMemo(() => {
     if (records.length === 0) return 0
-    return records.map(utilization).reduce((s, u) => s + u, 0) / records.length
+    return Number(fleetEfficiency(records))
   }, [records])
 
   return (

@@ -53,6 +53,24 @@ body {
   border: 1px solid rgba(226, 97, 47, 0.5);
 }
 
+.badge-ok {
+  background: rgba(47, 211, 184, 0.12);
+  color: #2fd3b8;
+  border: 1px solid rgba(47, 211, 184, 0.35);
+}
+
+.badge-bad {
+  background: rgba(226, 97, 47, 0.12);
+  color: #e2612f;
+  border: 1px solid rgba(226, 97, 47, 0.4);
+}
+
+.badge-unused {
+  background: rgba(139, 154, 166, 0.12);
+  color: #b7c2cb;
+  border: 1px solid rgba(139, 154, 166, 0.35);
+}
+
 .row-hover:hover {
   background: rgba(255, 255, 255, 0.025);
 }

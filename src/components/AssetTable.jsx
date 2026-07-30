@@ -1,10 +1,14 @@
 import { useState } from 'react'
-import { utilization, statusFor, isUnassigned } from '../utils/records.js'
+import { calculatedStats } from '../utils/records.js'
 
 export default function AssetTable({ records }) {
   const [filter, setFilter] = useState('')
 
-  const filtered = records.filter((r) => r.id.toLowerCase().includes(filter.toLowerCase()))
+  const filtered = records.filter((r) =>
+    [r.id, r.type, r.site, r.operator].some((value) =>
+      String(value ?? '').toLowerCase().includes(filter.toLowerCase()),
+    ),
+  )
 
   return (
     <section className="panel rounded-xl overflow-hidden">
@@ -35,15 +39,21 @@ export default function AssetTable({ records }) {
               <th className="px-4 py-3">Idle Hrs/Day</th>
               <th className="px-4 py-3">Rental Days</th>
               <th className="px-4 py-3">Operator</th>
-              <th className="px-4 py-3">Utilization</th>
+              <th className="px-4 py-3">Efficiency / Idle</th>
+              <th className="px-4 py-3">Runtime</th>
+              <th className="px-4 py-3">Fuel</th>
+              <th className="px-4 py-3">Idle Loss</th>
+              <th className="px-4 py-3">Alerts</th>
+              <th className="px-4 py-3">Fine</th>
               <th className="px-6 py-3">Status</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((r) => {
-              const u = utilization(r)
-              const st = statusFor(u)
-              const unassigned = isUnassigned(r)
+              const stats = calculatedStats(r, records)
+              const u = Number.parseFloat(stats.utilization)
+              const unassigned = stats.isUnassigned
+              const unused = Number(r.engine) === 0
               const barColor = u >= 70 ? '#2FD3B8' : u >= 30 ? '#F2A93B' : '#E2612F'
 
               return (
@@ -62,12 +72,30 @@ export default function AssetTable({ records }) {
                       <div className="util-track h-1.5 rounded-full w-full overflow-hidden">
                         <div className="h-full rounded-full" style={{ width: `${u.toFixed(0)}%`, background: barColor }} />
                       </div>
-                      <span className="font-mono text-xs text-inkDim">{u.toFixed(0)}%</span>
+                      <span className="font-mono text-xs text-inkDim">{stats.efficiency}</span>
                     </div>
+                    <span className="font-mono text-xs text-inkDim">idle {stats.idlePercentage}</span>
                   </td>
+                  <td className="px-4 py-3.5 font-mono text-ink whitespace-nowrap">{stats.runtimeHours.toFixed(1)} h</td>
+                  <td className="px-4 py-3.5 font-mono text-ink whitespace-nowrap">
+                    <span>{stats.fuelPerDay.toFixed(1)} L/d</span>
+                    <span className="block text-xs text-inkDim">{stats.totalFuel.toFixed(1)} L total</span>
+                  </td>
+                  <td className="px-4 py-3.5 font-mono text-rust whitespace-nowrap">{stats.idleFuelLoss.toFixed(1)} L</td>
+                  <td className="px-4 py-3.5 font-mono text-xs whitespace-nowrap">
+                    {stats.locationAlert !== 'OK' ? (
+                      <span className="text-rust">LOCATION</span>
+                    ) : stats.reminderNeeded ? (
+                      <span className="text-amber">RETURN SOON</span>
+                    ) : (
+                      <span className="text-inkDim">CLEAR</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3.5 font-mono whitespace-nowrap text-ink">₹{stats.fine.toLocaleString()}</td>
                   <td className="px-6 py-3.5">
                     <div className="flex flex-col gap-1 items-start">
-                      <span className={`badge ${st.cls} text-xs px-2 py-0.5 rounded`}>{st.label}</span>
+                      <span className={`badge ${stats.statusClass} text-xs px-2 py-0.5 rounded`}>{stats.statusLabel}</span>
+                      {unused && <span className="badge badge-unused text-xs px-2 py-0.5 rounded">UNUSED</span>}
                       {unassigned && <span className="badge badge-warn text-xs px-2 py-0.5 rounded">UNASSIGNED</span>}
                     </div>
                   </td>

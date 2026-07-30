@@ -10,6 +10,10 @@ export const fuelRate = {
   Loader: 13
 };
 
+const rentalDaysFor = (r) => Number(r?.rentalDays ?? r?.days ?? 0);
+const checkInFor = (r) => r?.checkin ?? r?.checkIn;
+const checkOutFor = (r) => r?.checkout ?? r?.checkOut;
+
 // ================================
 // 1. Efficiency
 // ================================
@@ -24,7 +28,7 @@ export function efficiency(r) {
 // ================================
 
 export function runtimeHours(r) {
-  return (r.engine * r.rentalDays).toFixed(2);
+  return (r.engine * rentalDaysFor(r)).toFixed(2);
 }
 
 // ================================
@@ -39,7 +43,7 @@ export function fuelPerDay(r) {
 // Total fuel during rental
 
 export function totalFuel(r) {
-  return (fuelPerDay(r) * r.rentalDays).toFixed(2);
+  return (fuelPerDay(r) * rentalDaysFor(r)).toFixed(2);
 }
 
 // ================================
@@ -74,7 +78,7 @@ export function locationAlert(r) {
 export function idleFuelLoss(r) {
   const rate = fuelRate[r.type] || 10;
 
-  return (r.idle * r.rentalDays * rate).toFixed(2);
+  return (r.idle * rentalDaysFor(r) * rate).toFixed(2);
 }
 
 // ================================
@@ -85,7 +89,7 @@ export function reminderNeeded(r) {
 
   const today = new Date();
 
-  const checkout = new Date(r.checkout);
+  const checkout = new Date(checkOutFor(r));
 
   const diff =
     Math.ceil((checkout - today) / (1000 * 60 * 60 * 24));
@@ -109,17 +113,17 @@ export function reminderNeeded(r) {
 
 export function fine(r) {
 
-  const checkin = new Date(r.checkin);
+  const checkin = new Date(checkInFor(r));
 
-  const checkout = new Date(r.checkout);
+  const checkout = new Date(checkOutFor(r));
 
   const days =
     Math.ceil((checkout - checkin) / (1000 * 60 * 60 * 24));
 
-  if (days <= r.rentalDays)
+  if (days <= rentalDaysFor(r))
     return 0;
 
-  const extra = days - r.rentalDays;
+  const extra = days - rentalDaysFor(r);
 
   const finePerDay = 2500;
 
@@ -210,10 +214,10 @@ export function calculatedStats(record, allRecords = []) {
   return {
     utilization: `${utilValue.toFixed(2)}%`,
     efficiency: `${Number(efficiency(record)).toFixed(2)}%`,
-    runtimeHours: Number(runtimeHours(record)).toFixed(2),
-    fuelPerDay: Number(fuelPerDay(record)).toFixed(2),
-    totalFuel: Number(totalFuel(record)).toFixed(2),
-    idleFuelLoss: Number(idleFuelLoss(record)).toFixed(2),
+    runtimeHours: Number(runtimeHours(record)),
+    fuelPerDay: Number(fuelPerDay(record)),
+    totalFuel: Number(totalFuel(record)),
+    idleFuelLoss: Number(idleFuelLoss(record)),
     idlePercentage: `${Number(idlePercentage(record)).toFixed(2)}%`,
     fine: fine(record),
     statusLabel: status.label,
