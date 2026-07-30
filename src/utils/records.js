@@ -1,16 +1,228 @@
-// Utilization = share of logged runtime that was actual engine work vs idle.
-export function utilization(r) {
-  const total = r.engine + r.idle
-  return total === 0 ? 0 : (r.engine / total) * 100
+// ================================
+// Fuel consumption (Litres / Engine Hour)
+// ================================
+
+export const fuelRate = {
+  Excavator: 12,
+  Bulldozer: 15,
+  Crane: 10,
+  Grader: 11,
+  Loader: 13
+};
+
+// ================================
+// 1. Efficiency
+// ================================
+
+export function efficiency(r) {
+  const total = r.engine + r.idle;
+  return total === 0 ? 0 : ((r.engine / total) * 100).toFixed(2);
 }
 
-// Status is derived live from utilization — never stored, so it can't drift from source data.
-export function statusFor(u) {
-  if (u >= 70) return { label: 'OPTIMAL', cls: 'badge-optimal' }
-  if (u >= 30) return { label: 'BALANCED', cls: 'badge-balanced' }
-  return { label: 'IDLE-HEAVY', cls: 'badge-idle' }
+// ================================
+// 2. Runtime Hours
+// ================================
+
+export function runtimeHours(r) {
+  return (r.engine * r.rentalDays).toFixed(2);
 }
+
+// ================================
+// 3. Fuel Used Per Day
+// ================================
+
+export function fuelPerDay(r) {
+  const rate = fuelRate[r.type] || 10;
+  return (rate * r.engine).toFixed(2);
+}
+
+// Total fuel during rental
+
+export function totalFuel(r) {
+  return (fuelPerDay(r) * r.rentalDays).toFixed(2);
+}
+
+// ================================
+// 4. Location Check
+// ================================
+
+const operatorEmails = {
+  OP101: "lewis44hamiltonp1@gmail.com",
+  OP106: "22pc24@gmail.com",
+  OP114: "lewis44hamiltonp1@gmail.com",
+  OP203: "22pc24@gmail.com",
+  OP301: "lewis44hamiltonp1@gmail.com"
+};
+
+export function locationAlert(r) {
+  if (!r.site || r.site === "NULL") {
+    return {
+      sendMail: true,
+      email: operatorEmails[r.operator] || "22pc24@gmail.com",
+      subject: "Equipment Location Missing",
+      message: `Equipment ${r.id} does not have a valid site location. Please update it immediately.`
+    };
+  }
+
+  return { sendMail: false };
+}
+
+// ================================
+// 5. Cost of Idle Time
+// ================================
+
+export function idleFuelLoss(r) {
+  const rate = fuelRate[r.type] || 10;
+
+  return (r.idle * r.rentalDays * rate).toFixed(2);
+}
+
+// ================================
+// 6. Checkout Reminder
+// ================================
+
+export function reminderNeeded(r) {
+
+  const today = new Date();
+
+  const checkout = new Date(r.checkout);
+
+  const diff =
+    Math.ceil((checkout - today) / (1000 * 60 * 60 * 24));
+
+  if (diff === 3) {
+
+    return {
+      sendMail: true,
+      email: operatorEmails[r.operator],
+      subject: "Rental Ending Soon",
+      message: `Equipment ${r.id} must be returned in 3 days.`
+    };
+  }
+
+  return { sendMail: false };
+}
+
+// ================================
+// 7. Fine Calculation
+// ================================
+
+export function fine(r) {
+
+  const checkin = new Date(r.checkin);
+
+  const checkout = new Date(r.checkout);
+
+  const days =
+    Math.ceil((checkout - checkin) / (1000 * 60 * 60 * 24));
+
+  if (days <= r.rentalDays)
+    return 0;
+
+  const extra = days - r.rentalDays;
+
+  const finePerDay = 2500;
+
+  return extra * finePerDay;
+}
+
+// ================================
+// 8. Idle Percentage
+// ================================
+
+export function idlePercentage(r) {
+
+  const total = r.engine + r.idle;
+
+  return total === 0
+    ? 0
+    : ((r.idle / total) * 100).toFixed(2);
+}
+
+// ================================
+// 9. Fleet Efficiency
+// ================================
+
+export function fleetEfficiency(data) {
+
+  const engine = data.reduce(
+    (sum, r) => sum + Number(r.engine),
+    0
+  );
+
+  const total = data.reduce(
+    (sum, r) => sum + Number(r.engine) + Number(r.idle),
+    0
+  );
+
+  return total === 0
+    ? 0
+    : ((engine / total) * 100).toFixed(2);
+}
+
+// ================================
+// 10. Assignment Check
+// ================================
 
 export function isUnassigned(r) {
-  return !r.site || !r.operator
+  const operator = String(r?.operator ?? "")
+    .trim()
+    .toUpperCase();
+
+  return (
+    operator === "" ||
+    operator === "NULL" ||
+    operator === "UNASSIGNED" ||
+    operator === "N/A"
+  );
+}
+
+export function utilization(r) {
+  const engine = Number(r?.engine ?? 0);
+  const idle = Number(r?.idle ?? 0);
+  const total = engine + idle;
+
+  if (total <= 0) return 0;
+  return (engine / total) * 100;
+}
+
+export function statusFor(input) {
+  const u = typeof input === "number"
+    ? input
+    : utilization(input);
+
+  if (u >= 70) {
+    return { label: "Healthy", cls: "badge-ok" };
+  }
+  if (u >= 30) {
+    return { label: "Watch", cls: "badge-warn" };
+  }
+  return { label: "Critical", cls: "badge-bad" };
+}
+
+// Bundle every computed value into one display-ready object.
+export function calculatedStats(record, allRecords = []) {
+  const utilValue = utilization(record);
+  const status = statusFor(utilValue);
+  const location = locationAlert(record);
+  const reminder = reminderNeeded(record);
+
+  return {
+    utilization: `${utilValue.toFixed(2)}%`,
+    efficiency: `${Number(efficiency(record)).toFixed(2)}%`,
+    runtimeHours: Number(runtimeHours(record)).toFixed(2),
+    fuelPerDay: Number(fuelPerDay(record)).toFixed(2),
+    totalFuel: Number(totalFuel(record)).toFixed(2),
+    idleFuelLoss: Number(idleFuelLoss(record)).toFixed(2),
+    idlePercentage: `${Number(idlePercentage(record)).toFixed(2)}%`,
+    fine: fine(record),
+    statusLabel: status.label,
+    statusClass: status.cls,
+    isUnassigned: isUnassigned(record),
+    locationAlert: location.sendMail ? location.message : "OK",
+    reminderNeeded: reminder.sendMail,
+    fleetEfficiency: allRecords.length
+      ? `${Number(fleetEfficiency(allRecords)).toFixed(2)}%`
+      : "0.00%"
+  };
 }
