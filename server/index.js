@@ -1,6 +1,7 @@
 import cors from 'cors'
 import dotenv from 'dotenv'
 import express from 'express'
+import nodemailer from 'nodemailer'
 import pg from 'pg'
 
 dotenv.config()
@@ -9,6 +10,15 @@ const { Pool } = pg
 const app = express()
 const port = Number(process.env.PORT || 4000)
 const toNumber = (value) => (value == null ? 0 : Number(value))
+const reminderDays = 2
+const operatorEmails = {
+  OP101: 'lewis44hamiltonp1@gmail.com',
+  OP106: '22pc24@gmail.com',
+  OP114: 'lewis44hamiltonp1@gmail.com',
+  OP203: '22pc24@gmail.com',
+  OP301: 'lewis44hamiltonp1@gmail.com',
+}
+let reminderCheckRunning = false
 
 const pool = new Pool({
   host: process.env.PGHOST || 'localhost',
@@ -17,6 +27,86 @@ const pool = new Pool({
   user: process.env.PGUSER || 'postgres',
   password: process.env.PGPASSWORD || '',
 })
+
+const mailer = process.env.SMTP_HOST
+  ? nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT || 587),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: process.env.SMTP_USER
+        ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+        : undefined,
+    })
+  : null
+
+async function ensureNotificationLog() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS rental_notification_log (
+      equipment_id VARCHAR(20) NOT NULL REFERENCES rental_records(equipment_id),
+      notification_type VARCHAR(50) NOT NULL,
+      checkout_date DATE NOT NULL,
+      sent_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (equipment_id, notification_type, checkout_date)
+    )
+  `)
+}
+
+async function sendRentalEndReminders() {
+  if (reminderCheckRunning) return
+  reminderCheckRunning = true
+
+  try {
+    if (!mailer) {
+      console.warn('Rental reminder emails are disabled: SMTP_HOST is not configured.')
+      return
+    }
+
+    const dueRentals = await pool.query(
+      `SELECT equipment_id AS id, operator_id AS operator, check_out AS "checkOut"
+       FROM rental_records
+       WHERE check_out = CURRENT_DATE + $1::integer`,
+      [reminderDays],
+    )
+
+    for (const rental of dueRentals.rows) {
+      const recipient = operatorEmails[rental.operator] || process.env.ALERT_EMAIL
+      if (!recipient) {
+        console.warn(`No reminder recipient configured for ${rental.id}.`)
+        continue
+      }
+
+      const claim = await pool.query(
+        `INSERT INTO rental_notification_log (equipment_id, notification_type, checkout_date)
+         VALUES ($1, 'rental_end_reminder', $2)
+         ON CONFLICT DO NOTHING
+         RETURNING equipment_id`,
+        [rental.id, rental.checkOut],
+      )
+      if (claim.rowCount === 0) continue
+
+      try {
+        await mailer.sendMail({
+          from: process.env.SMTP_FROM || process.env.SMTP_USER,
+          to: recipient,
+          subject: `Rental ending in ${reminderDays} days: ${rental.id}`,
+          text: `Equipment ${rental.id} must be returned by ${new Date(rental.checkOut).toLocaleDateString('en-CA')}.`,
+        })
+        console.log(`Rental-end reminder sent for ${rental.id} to ${recipient}.`)
+      } catch (error) {
+        await pool.query(
+          `DELETE FROM rental_notification_log
+           WHERE equipment_id = $1 AND notification_type = 'rental_end_reminder' AND checkout_date = $2`,
+          [rental.id, rental.checkOut],
+        )
+        console.error(`Unable to send rental reminder for ${rental.id}:`, error.message)
+      }
+    }
+  } catch (error) {
+    console.error('Unable to check rental-end reminders:', error.message)
+  } finally {
+    reminderCheckRunning = false
+  }
+}
 
 app.use(cors())
 app.use(express.json())
@@ -42,7 +132,8 @@ app.get('/api/records', async (_req, res) => {
         engine_hrs_day AS engine,
         idle_hrs_day AS idle,
         rental_days AS days,
-        operator_id AS operator
+        operator_id AS operator,
+        check_out IS NOT NULL AND check_out < CURRENT_DATE AS overdue
       FROM rental_records
       ORDER BY equipment_id
     `)
@@ -60,6 +151,13 @@ app.get('/api/records', async (_req, res) => {
   }
 })
 
-app.listen(port, () => {
+app.listen(port, async () => {
   console.log(`API running on http://localhost:${port}`)
+  try {
+    await ensureNotificationLog()
+  } catch (error) {
+    console.error('Unable to create rental notification log:', error.message)
+  }
+  sendRentalEndReminders()
+  setInterval(sendRentalEndReminders, 60 * 60 * 1000)
 })

@@ -55,6 +55,7 @@ export default function AssetTable({ records }) {
               const unassigned = stats.isUnassigned
               const unused = Number(r.engine) === 0
               const isLive = isActiveRental(r)
+              const overdue = r.overdue === true || r.overdue === 'true'
               const barColor = u >= 70 ? '#2FD3B8' : u >= 30 ? '#F2A93B' : '#E2612F'
 
               return (
@@ -107,6 +108,7 @@ export default function AssetTable({ records }) {
                   <td className="px-6 py-3.5">
                     <div className="flex flex-col gap-1 items-start">
                       <span className={`badge ${stats.statusClass} text-xs px-2 py-0.5 rounded`}>{stats.statusLabel}</span>
+                      {overdue && <span className="badge badge-bad text-xs px-2 py-0.5 rounded">OVERDUE</span>}
                       {unused && <span className="badge badge-unused text-xs px-2 py-0.5 rounded">Under-Utilized</span>}
                       {unassigned && <span className="badge badge-warn text-xs px-2 py-0.5 rounded">UNASSIGNED</span>}
                     </div>

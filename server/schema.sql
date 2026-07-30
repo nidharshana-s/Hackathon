@@ -10,6 +10,14 @@ CREATE TABLE IF NOT EXISTS rental_records (
   operator_id VARCHAR(20)
 );
 
+CREATE TABLE IF NOT EXISTS rental_notification_log (
+  equipment_id VARCHAR(20) NOT NULL REFERENCES rental_records(equipment_id),
+  notification_type VARCHAR(50) NOT NULL,
+  checkout_date DATE NOT NULL,
+  sent_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (equipment_id, notification_type, checkout_date)
+);
+
 -- Existing DBs: allow null check_out (means currently checked in) and store time.
 ALTER TABLE rental_records
   ALTER COLUMN check_in TYPE TIMESTAMP USING check_in::timestamp;

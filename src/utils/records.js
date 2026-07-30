@@ -117,12 +117,12 @@ export function reminderNeeded(r) {
   const diff =
     Math.ceil((checkout - today) / (1000 * 60 * 60 * 24));
 
-  if (diff === 3) {
+  if (diff === 2) {
     return {
       sendMail: true,
       email: operatorEmails[r.operator],
       subject: "Rental Ending Soon",
-      message: `Equipment ${r.id} must be returned in 3 days.`
+      message: `Equipment ${r.id} must be returned in 2 days.`
     };
   }
 
