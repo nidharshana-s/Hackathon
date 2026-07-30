@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { calculatedStats } from '../utils/records.js'
+import { calculatedStats, isActiveRental } from '../utils/records.js'
 
 export default function AssetTable({ records }) {
   const [filter, setFilter] = useState('')
@@ -54,15 +54,27 @@ export default function AssetTable({ records }) {
               const u = Number.parseFloat(stats.utilization)
               const unassigned = stats.isUnassigned
               const unused = Number(r.engine) === 0
+              const isLive = isActiveRental(r)
               const barColor = u >= 70 ? '#2FD3B8' : u >= 30 ? '#F2A93B' : '#E2612F'
 
               return (
                 <tr key={r.id} className="row-hover border-b border-panelLine last:border-0">
-                  <td className="px-6 py-3.5 font-mono font-medium text-ink">{r.id}</td>
+                  <td className="px-6 py-3.5 font-mono font-medium text-ink">
+                    <span className="flex items-center gap-2">
+                      <span
+                        className={`h-2.5 w-2.5 rounded-full ${isLive ? 'bg-teal shadow-[0_0_8px_rgba(47,211,184,0.8)]' : 'bg-rust shadow-[0_0_8px_rgba(226,97,47,0.65)]'}`}
+                        title={isLive ? 'Live: currently within rental dates' : 'Inactive: outside rental dates'}
+                        aria-label={isLive ? 'Live equipment' : 'Inactive equipment'}
+                      />
+                      {r.id}
+                    </span>
+                  </td>
                   <td className="px-4 py-3.5 text-ink">{r.type}</td>
                   <td className={`px-4 py-3.5 font-mono ${!r.site ? 'text-rust' : 'text-inkDim'}`}>{r.site ?? '—'}</td>
-                  <td className="px-4 py-3.5 font-mono text-inkDim">{r.checkIn}</td>
-                  <td className="px-4 py-3.5 font-mono text-inkDim">{r.checkOut}</td>
+                  <td className="px-4 py-3.5 font-mono text-inkDim">{r.checkIn ? new Date(r.checkIn).toLocaleString() : '—'}</td>
+                  <td className={`px-4 py-3.5 font-mono ${!r.checkOut ? 'text-teal' : 'text-inkDim'}`}>
+                    {r.checkOut ? new Date(r.checkOut).toLocaleString() : 'In use'}
+                  </td>
                   <td className="px-4 py-3.5 font-mono text-ink">{r.engine.toFixed(1)}</td>
                   <td className="px-4 py-3.5 font-mono text-ink">{r.idle.toFixed(1)}</td>
                   <td className="px-4 py-3.5 font-mono text-ink">{r.days}</td>
@@ -95,7 +107,7 @@ export default function AssetTable({ records }) {
                   <td className="px-6 py-3.5">
                     <div className="flex flex-col gap-1 items-start">
                       <span className={`badge ${stats.statusClass} text-xs px-2 py-0.5 rounded`}>{stats.statusLabel}</span>
-                      {unused && <span className="badge badge-unused text-xs px-2 py-0.5 rounded">UNUSED</span>}
+                      {unused && <span className="badge badge-unused text-xs px-2 py-0.5 rounded">Under-Utilized</span>}
                       {unassigned && <span className="badge badge-warn text-xs px-2 py-0.5 rounded">UNASSIGNED</span>}
                     </div>
                   </td>

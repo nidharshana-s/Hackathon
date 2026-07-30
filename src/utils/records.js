@@ -14,6 +14,22 @@ const rentalDaysFor = (r) => Number(r?.rentalDays ?? r?.days ?? 0);
 const checkInFor = (r) => r?.checkin ?? r?.checkIn;
 const checkOutFor = (r) => r?.checkout ?? r?.checkOut;
 
+export function isActiveRental(r, now = new Date()) {
+  const checkIn = new Date(checkInFor(r));
+  const checkOut = new Date(checkOutFor(r));
+
+  if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime())) {
+    return false;
+  }
+
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  checkIn.setHours(0, 0, 0, 0);
+  checkOut.setHours(23, 59, 59, 999);
+
+  return today >= checkIn && today <= checkOut;
+}
+
 // ================================
 // 1. Efficiency
 // ================================
@@ -86,16 +102,17 @@ export function idleFuelLoss(r) {
 // ================================
 
 export function reminderNeeded(r) {
+  const rawCheckout = checkOutFor(r);
+  if (!rawCheckout) return { sendMail: false };
 
   const today = new Date();
-
-  const checkout = new Date(checkOutFor(r));
+  const checkout = new Date(rawCheckout);
+  if (Number.isNaN(checkout.getTime())) return { sendMail: false };
 
   const diff =
     Math.ceil((checkout - today) / (1000 * 60 * 60 * 24));
 
   if (diff === 3) {
-
     return {
       sendMail: true,
       email: operatorEmails[r.operator],
@@ -112,10 +129,12 @@ export function reminderNeeded(r) {
 // ================================
 
 export function fine(r) {
+  const rawCheckout = checkOutFor(r);
+  if (!rawCheckout) return 0;
 
   const checkin = new Date(checkInFor(r));
-
-  const checkout = new Date(checkOutFor(r));
+  const checkout = new Date(rawCheckout);
+  if (Number.isNaN(checkin.getTime()) || Number.isNaN(checkout.getTime())) return 0;
 
   const days =
     Math.ceil((checkout - checkin) / (1000 * 60 * 60 * 24));
@@ -124,7 +143,6 @@ export function fine(r) {
     return 0;
 
   const extra = days - rentalDaysFor(r);
-
   const finePerDay = 2500;
 
   return extra * finePerDay;

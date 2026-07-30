@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { QrReader } from 'react-qr-reader'
 
 function parseQrText(text) {
@@ -45,20 +45,86 @@ function parseQrText(text) {
   return { equipmentId: raw, type: '' }
 }
 
+function formatTimestamp(value) {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return String(value)
+  return date.toLocaleString()
+}
+
 export default function OperatorCheckin({ token, operatorId, apiBaseUrl }) {
   const [qrText, setQrText] = useState('')
   const [equipmentId, setEquipmentId] = useState('')
+  const [siteId, setSiteId] = useState('')
+  const [checkedIn, setCheckedIn] = useState(false)
+  const [record, setRecord] = useState(null)
+  const [loadingStatus, setLoadingStatus] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
-  async function submit(e) {
-    e.preventDefault()
+  function resetScan() {
+    setEquipmentId('')
+    setQrText('')
+    setSiteId('')
+    setCheckedIn(false)
+    setRecord(null)
+    setSuccess('')
+    setError('')
+  }
+
+  useEffect(() => {
+    if (!equipmentId || !token) return
+
+    let cancelled = false
+
+    async function loadStatus() {
+      setLoadingStatus(true)
+      setError('')
+      try {
+        const res = await fetch(
+          `${apiBaseUrl}/api/operator/equipment/${encodeURIComponent(equipmentId)}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        )
+        const payload = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(payload?.error || `Failed to load equipment (${res.status})`)
+        if (cancelled) return
+
+        setRecord(payload.record || null)
+        setCheckedIn(Boolean(payload.checkedIn))
+        if (payload.record?.site_id) {
+          setSiteId(String(payload.record.site_id))
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load equipment')
+          setRecord(null)
+          setCheckedIn(false)
+        }
+      } finally {
+        if (!cancelled) setLoadingStatus(false)
+      }
+    }
+
+    loadStatus()
+    return () => {
+      cancelled = true
+    }
+  }, [equipmentId, token, apiBaseUrl])
+
+  async function submitAction(action) {
     setError('')
     setSuccess('')
     setSubmitting(true)
     try {
-      const res = await fetch(`${apiBaseUrl}/api/operator/checkin`, {
+      if (!siteId.trim()) {
+        throw new Error('Site ID is required')
+      }
+
+      const endpoint = action === 'checkin' ? 'checkin' : 'checkout'
+      const res = await fetch(`${apiBaseUrl}/api/operator/${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -66,31 +132,43 @@ export default function OperatorCheckin({ token, operatorId, apiBaseUrl }) {
         },
         body: JSON.stringify({
           equipmentId: equipmentId.trim(),
+          siteId: siteId.trim(),
         }),
       })
 
       const payload = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(payload?.error || `Check-in failed (${res.status})`)
+      if (!res.ok) throw new Error(payload?.error || `${action} failed (${res.status})`)
 
-      setSuccess(`Updated last operator for ${payload?.record?.equipment_id || equipmentId}. Ready for next scan.`)
-      setEquipmentId('')
-      setQrText('')
+      setRecord(payload.record || null)
+      setCheckedIn(Boolean(payload.checkedIn))
+
+      if (action === 'checkin') {
+        setSuccess(
+          `Checked in ${payload?.record?.equipment_id || equipmentId} at site ${siteId.trim()}. Check-in is now locked until checkout.`
+        )
+      } else {
+        setSuccess(
+          `Checked out ${payload?.record?.equipment_id || equipmentId}. You can check in again.`
+        )
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Check-in failed')
+      setError(err instanceof Error ? err.message : `${action} failed`)
     } finally {
       setSubmitting(false)
     }
   }
 
-  const canSubmit = equipmentId.trim().length > 0 && !submitting
+  const canAct = equipmentId.trim().length > 0 && siteId.trim().length > 0 && !submitting && !loadingStatus
 
   return (
     <div className="container">
       <div className="panel">
         <div className="topbar">
           <div>
-            <div className="title">Operator Check-in</div>
-            <div className="hint">Logged in as {operatorId}. Scan QR and mark equipment as in-use.</div>
+            <div className="title">Operator Check-in / Check-out</div>
+            <div className="hint">
+              Logged in as {operatorId}. Scan equipment QR, enter site ID, then check in or check out.
+            </div>
           </div>
           <div className="badge">OPS</div>
         </div>
@@ -112,9 +190,10 @@ export default function OperatorCheckin({ token, operatorId, apiBaseUrl }) {
                     const parsed = parseQrText(text)
                     if (parsed.equipmentId) {
                       setEquipmentId(parsed.equipmentId)
+                      setSuccess('')
+                      setError('')
                     }
                   }}
-                  // The package exposes options by props; keep the component stable.
                   scanDelay={300}
                   containerStyle={{ width: '100%' }}
                 />
@@ -129,40 +208,75 @@ export default function OperatorCheckin({ token, operatorId, apiBaseUrl }) {
                   <div style={{ fontWeight: 700 }}>{equipmentId}</div>
                   <button
                     type="button"
-                    onClick={() => {
-                      setEquipmentId('')
-                      setQrText('')
-                      setSuccess('')
-                      setError('')
-                    }}
+                    onClick={resetScan}
                     style={{ background: 'rgba(255,255,255,0.02)', color: 'var(--text)' }}
                   >
                     Scan Again
                   </button>
                 </div>
+
                 <div style={{ marginTop: 12 }}>
                   <label>Equipment ID</label>
                   <input value={equipmentId} onChange={(e) => setEquipmentId(e.target.value)} />
                 </div>
+
+                <div style={{ marginTop: 12 }}>
+                  <label>Site ID</label>
+                  <input
+                    value={siteId}
+                    onChange={(e) => setSiteId(e.target.value)}
+                    placeholder="e.g. S003"
+                  />
+                </div>
+
+                <div style={{ marginTop: 12 }} className="hint">
+                  {loadingStatus
+                    ? 'Loading equipment status...'
+                    : checkedIn
+                      ? 'Status: CHECKED IN — Check-in disabled until you check out.'
+                      : 'Status: AVAILABLE — Ready to check in.'}
+                </div>
+
+                {record && (
+                  <div className="hint" style={{ marginTop: 8 }}>
+                    Last check-in: {formatTimestamp(record.check_in)} · Last check-out:{' '}
+                    {formatTimestamp(record.check_out)} · Operator: {record.operator_id || '—'}
+                  </div>
+                )}
+
+                {error && <div className="error">{error}</div>}
+                {success && <div className="success">{success}</div>}
+
+                <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    disabled={!canAct || checkedIn}
+                    onClick={() => submitAction('checkin')}
+                    title={checkedIn ? 'Already checked in. Check out first.' : 'Record check-in time'}
+                  >
+                    {submitting ? 'Updating...' : 'Check-in'}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={!canAct || !checkedIn}
+                    onClick={() => submitAction('checkout')}
+                    style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--text)' }}
+                    title={!checkedIn ? 'Not checked in yet.' : 'Record check-out time'}
+                  >
+                    {submitting ? 'Updating...' : 'Check-out'}
+                  </button>
+                </div>
+
+                <div className="hint" style={{ marginTop: 12 }}>
+                  Check-in sets `site_id`, `check_in` (current time), and `operator_id`. Check-out sets
+                  `check_out` (current time). After one check-in, Check-in stays disabled until checkout.
+                </div>
               </div>
             )}
-            <form onSubmit={submit}>
-              {error && <div className="error">{error}</div>}
-              {success && <div className="success">{success}</div>}
-
-              <div style={{ marginTop: 16 }}>
-                <button type="submit" disabled={!canSubmit}>
-                  {submitting ? 'Updating...' : 'Mark As In Use'}
-                </button>
-              </div>
-            </form>
-            <div className="hint">
-              This updates only `operator_id` in existing `rental_records` rows. It does not create rental entries.
-            </div>
           </div>
         </div>
       </div>
     </div>
   )
 }
-

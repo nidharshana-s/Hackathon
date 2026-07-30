@@ -26,6 +26,16 @@ BEGIN
   END IF;
 END $$;
 
+-- Allow null check_out while currently checked in; store timestamps.
+ALTER TABLE rental_records
+  ALTER COLUMN check_in TYPE TIMESTAMP USING check_in::timestamp;
+
+ALTER TABLE rental_records
+  ALTER COLUMN check_out TYPE TIMESTAMP USING check_out::timestamp;
+
+ALTER TABLE rental_records
+  ALTER COLUMN check_out DROP NOT NULL;
+
 INSERT INTO rental_records (
   equipment_id, type, site_id, check_in, check_out, engine_hrs_day, idle_hrs_day, rental_days, operator_id
 )

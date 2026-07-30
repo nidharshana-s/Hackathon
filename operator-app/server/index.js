@@ -22,6 +22,13 @@ const pool = new Pool({
 app.use(cors())
 app.use(express.json())
 
+function isCheckedIn(row) {
+  if (!row) return false
+  // Checked in when check_out is empty, or check_in is after check_out.
+  if (row.check_out == null) return true
+  return new Date(row.check_in) > new Date(row.check_out)
+}
+
 async function authRequired(req, res, next) {
   try {
     const header = req.headers.authorization || ''
@@ -72,28 +79,140 @@ app.get('/api/operator/me', authRequired, async (req, res) => {
   return res.json({ operator_id: req.user?.operator_id })
 })
 
-app.post('/api/operator/checkin', authRequired, async (req, res) => {
+app.get('/api/operator/equipment/:equipmentId', authRequired, async (req, res) => {
   try {
-    const operatorId = req.user?.operator_id
-
-    const { equipmentId } = req.body || {}
+    const equipmentId = String(req.params.equipmentId || '').trim()
     if (!equipmentId) return res.status(400).json({ error: 'equipmentId is required' })
 
     const result = await pool.query(
       `
-      UPDATE rental_records
-      SET operator_id = $2
+      SELECT equipment_id, type, site_id, check_in, check_out, operator_id
+      FROM rental_records
       WHERE equipment_id = $1
-      RETURNING equipment_id, operator_id
       `,
-      [String(equipmentId).trim(), String(operatorId)]
+      [equipmentId]
     )
 
     if (result.rowCount === 0) {
       return res.status(404).json({ error: 'Equipment not found in rental_records' })
     }
 
-    return res.json({ ok: true, record: result.rows[0] })
+    const record = result.rows[0]
+    return res.json({
+      ok: true,
+      record,
+      checkedIn: isCheckedIn(record),
+    })
+  } catch (error) {
+    return res.status(500).json({ error: error.message })
+  }
+})
+
+app.post('/api/operator/checkin', authRequired, async (req, res) => {
+  try {
+    const operatorId = req.user?.operator_id
+    const { equipmentId, siteId } = req.body || {}
+
+    if (!equipmentId) return res.status(400).json({ error: 'equipmentId is required' })
+    if (!siteId || !String(siteId).trim()) {
+      return res.status(400).json({ error: 'siteId is required' })
+    }
+
+    const existing = await pool.query(
+      `
+      SELECT equipment_id, check_in, check_out
+      FROM rental_records
+      WHERE equipment_id = $1
+      `,
+      [String(equipmentId).trim()]
+    )
+
+    if (existing.rowCount === 0) {
+      return res.status(404).json({ error: 'Equipment not found in rental_records' })
+    }
+
+    if (isCheckedIn(existing.rows[0])) {
+      return res.status(409).json({
+        error: 'Already checked in. Check out first before checking in again.',
+        checkedIn: true,
+      })
+    }
+
+    const result = await pool.query(
+      `
+      UPDATE rental_records
+      SET
+        site_id = $2,
+        check_in = NOW(),
+        check_out = NULL,
+        operator_id = $3
+      WHERE equipment_id = $1
+      RETURNING equipment_id, type, site_id, check_in, check_out, operator_id
+      `,
+      [String(equipmentId).trim(), String(siteId).trim(), String(operatorId)]
+    )
+
+    return res.json({
+      ok: true,
+      action: 'checkin',
+      checkedIn: true,
+      record: result.rows[0],
+    })
+  } catch (error) {
+    return res.status(500).json({ error: error.message })
+  }
+})
+
+app.post('/api/operator/checkout', authRequired, async (req, res) => {
+  try {
+    const operatorId = req.user?.operator_id
+    const { equipmentId, siteId } = req.body || {}
+
+    if (!equipmentId) return res.status(400).json({ error: 'equipmentId is required' })
+
+    const existing = await pool.query(
+      `
+      SELECT equipment_id, check_in, check_out
+      FROM rental_records
+      WHERE equipment_id = $1
+      `,
+      [String(equipmentId).trim()]
+    )
+
+    if (existing.rowCount === 0) {
+      return res.status(404).json({ error: 'Equipment not found in rental_records' })
+    }
+
+    if (!isCheckedIn(existing.rows[0])) {
+      return res.status(409).json({
+        error: 'Not checked in. Check in first before checking out.',
+        checkedIn: false,
+      })
+    }
+
+    const result = await pool.query(
+      `
+      UPDATE rental_records
+      SET
+        check_out = NOW(),
+        operator_id = $2,
+        site_id = COALESCE(NULLIF($3, ''), site_id)
+      WHERE equipment_id = $1
+      RETURNING equipment_id, type, site_id, check_in, check_out, operator_id
+      `,
+      [
+        String(equipmentId).trim(),
+        String(operatorId),
+        siteId == null ? '' : String(siteId).trim(),
+      ]
+    )
+
+    return res.json({
+      ok: true,
+      action: 'checkout',
+      checkedIn: false,
+      record: result.rows[0],
+    })
   } catch (error) {
     return res.status(500).json({ error: error.message })
   }
@@ -102,4 +221,3 @@ app.post('/api/operator/checkin', authRequired, async (req, res) => {
 app.listen(port, () => {
   console.log(`Operator API running on http://localhost:${port}`)
 })
-

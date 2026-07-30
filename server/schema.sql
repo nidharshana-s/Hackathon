@@ -2,13 +2,23 @@ CREATE TABLE IF NOT EXISTS rental_records (
   equipment_id VARCHAR(20) PRIMARY KEY,
   type VARCHAR(50) NOT NULL,
   site_id VARCHAR(20),
-  check_in DATE NOT NULL,
-  check_out DATE NOT NULL,
+  check_in TIMESTAMP NOT NULL,
+  check_out TIMESTAMP,
   engine_hrs_day NUMERIC(5, 2) NOT NULL,
   idle_hrs_day NUMERIC(5, 2) NOT NULL,
   rental_days INTEGER NOT NULL,
   operator_id VARCHAR(20)
 );
+
+-- Existing DBs: allow null check_out (means currently checked in) and store time.
+ALTER TABLE rental_records
+  ALTER COLUMN check_in TYPE TIMESTAMP USING check_in::timestamp;
+
+ALTER TABLE rental_records
+  ALTER COLUMN check_out TYPE TIMESTAMP USING check_out::timestamp;
+
+ALTER TABLE rental_records
+  ALTER COLUMN check_out DROP NOT NULL;
 
 INSERT INTO rental_records (
   equipment_id, type, site_id, check_in, check_out, engine_hrs_day, idle_hrs_day, rental_days, operator_id
