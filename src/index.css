@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  background: #12161a;
+  font-family: 'Inter', sans-serif;
+  color: #e7edf2;
+}
+
+.grain {
+  background-image: radial-gradient(circle at 20% 20%, rgba(242, 169, 59, 0.06), transparent 40%),
+    radial-gradient(circle at 85% 10%, rgba(47, 211, 184, 0.05), transparent 35%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.015) 0px, rgba(255, 255, 255, 0.015) 1px, transparent 1px, transparent 3px);
+}
+
+.panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0) 40%), #1b2229;
+  border: 1px solid #2a333c;
+}
+
+.hazard-edge {
+  background-image: repeating-linear-gradient(-45deg, #f2a93b 0 10px, #1b2229 10px 20px);
+}
+
+.badge {
+  font-family: 'IBM Plex Mono', monospace;
+  letter-spacing: 0.03em;
+}
+
+.badge-optimal {
+  background: rgba(47, 211, 184, 0.12);
+  color: #2fd3b8;
+  border: 1px solid rgba(47, 211, 184, 0.35);
+}
+
+.badge-balanced {
+  background: rgba(242, 169, 59, 0.12);
+  color: #f2a93b;
+  border: 1px solid rgba(242, 169, 59, 0.35);
+}
+
+.badge-idle {
+  background: rgba(226, 97, 47, 0.12);
+  color: #e2612f;
+  border: 1px solid rgba(226, 97, 47, 0.4);
+}
+
+.badge-warn {
+  background: rgba(226, 97, 47, 0.18);
+  color: #ffb199;
+  border: 1px solid rgba(226, 97, 47, 0.5);
+}
+
+.row-hover:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.util-track {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.gauge-glow {
+  filter: drop-shadow(0 0 14px rgba(242, 169, 59, 0.25));
+}
+
+::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #33404a;
+  border-radius: 4px;
+}
