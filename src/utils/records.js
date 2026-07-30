@@ -16,17 +16,22 @@ const checkOutFor = (r) => r?.checkout ?? r?.checkOut;
 
 export function isActiveRental(r, now = new Date()) {
   const checkIn = new Date(checkInFor(r));
-  const checkOut = new Date(checkOutFor(r));
+  const checkoutValue = checkOutFor(r);
+  const checkOut = checkoutValue ? new Date(checkoutValue) : null;
 
-  if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime())) {
+  if (Number.isNaN(checkIn.getTime()) || (checkOut && Number.isNaN(checkOut.getTime()))) {
     return false;
   }
 
   const today = new Date(now);
   today.setHours(0, 0, 0, 0);
   checkIn.setHours(0, 0, 0, 0);
-  checkOut.setHours(23, 59, 59, 999);
 
+  if (!checkOut) {
+    return today >= checkIn;
+  }
+
+  checkOut.setHours(23, 59, 59, 999);
   return today >= checkIn && today <= checkOut;
 }
 

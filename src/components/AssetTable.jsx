@@ -63,7 +63,7 @@ export default function AssetTable({ records }) {
                     <span className="flex items-center gap-2">
                       <span
                         className={`h-2.5 w-2.5 rounded-full ${isLive ? 'bg-teal shadow-[0_0_8px_rgba(47,211,184,0.8)]' : 'bg-rust shadow-[0_0_8px_rgba(226,97,47,0.65)]'}`}
-                        title={isLive ? 'Live: currently within rental dates' : 'Inactive: outside rental dates'}
+                        title={isLive ? 'Live: today is after the check-in date' : 'Inactive: check-in date has not passed'}
                         aria-label={isLive ? 'Live equipment' : 'Inactive equipment'}
                       />
                       {r.id}
