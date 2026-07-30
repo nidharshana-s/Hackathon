@@ -51,9 +51,9 @@ export default function HoursChart({ records }) {
   }
 
   return (
-    <div className="panel rounded-xl p-6 lg:col-span-2">
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-xs text-inkDim font-mono">ENGINE HRS/DAY vs IDLE HRS/DAY — PER UNIT</p>
+    <div className="panel rounded-xl p-6 h-full flex flex-col">
+      <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+        <p className="text-xs text-inkDim font-mono">ENGINE HRS/DAY vs IDLE HRS/DAY</p>
         <div className="flex gap-3 text-xs font-mono">
           <span className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: '#2FD3B8' }} />
@@ -65,7 +65,9 @@ export default function HoursChart({ records }) {
           </span>
         </div>
       </div>
-      <Bar data={data} options={options} height={140} />
+      <div className="flex-1 min-h-[180px]">
+        <Bar data={data} options={{ ...options, maintainAspectRatio: false }} />
+      </div>
     </div>
   )
 }

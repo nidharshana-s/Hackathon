@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Header from './components/Header.jsx'
 import SummaryCards from './components/SummaryCards.jsx'
+import DueDateCalendar from './components/DueDateCalendar.jsx'
 import FleetGauge from './components/FleetGauge.jsx'
 import HoursChart from './components/HoursChart.jsx'
 import AssetTable from './components/AssetTable.jsx'
@@ -60,10 +61,14 @@ function App() {
           <>
             <SummaryCards records={records} utilization={utilization} />
 
-            <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <FleetGauge avgUtil={avgUtil} />
+            <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <DueDateCalendar records={records} />
               <HoursChart records={records} />
             </section>
+
+            <div className="max-w-md">
+              <FleetGauge avgUtil={avgUtil} />
+            </div>
 
             <ForecastPanel />
             <AssetTable records={records} />
