@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { utilization, statusFor, isUnassigned } from '../data.js'
+import { utilization, statusFor, isUnassigned } from '../utils/records.js'
 
 export default function AssetTable({ records }) {
   const [filter, setFilter] = useState('')
