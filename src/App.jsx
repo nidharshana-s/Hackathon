@@ -6,6 +6,7 @@ import FleetGauge from './components/FleetGauge.jsx'
 import HoursChart from './components/HoursChart.jsx'
 import AssetTable from './components/AssetTable.jsx'
 import ForecastPanel from './components/ForecastPanel.jsx'
+import Chatbot from './components/Chatbot.jsx'
 import { fleetEfficiency, utilization } from './utils/records.js'
 
 function App() {
@@ -79,6 +80,7 @@ function App() {
           Phase 1 dashboard · live status &amp; utilization derived from PostgreSQL records
         </footer>
       </main>
+      <Chatbot />
     </div>
   )
 }

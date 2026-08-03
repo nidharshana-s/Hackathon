@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS rental_records (
   check_out TIMESTAMP,
   engine_hrs_day NUMERIC(5, 2) NOT NULL,
   idle_hrs_day NUMERIC(5, 2) NOT NULL,
-  rental_days INTEGER NOT NULL,
+  rental_days INTEGER NOT NULL,a
   operator_id VARCHAR(20)
 );
 
